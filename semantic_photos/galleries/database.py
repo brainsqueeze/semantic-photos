@@ -5,8 +5,6 @@ import sys
 import os
 import re
 
-from elasticsearch import Elasticsearch
-
 
 def _dict_factory(cursor: sqlite3.Cursor, row: sqlite3.Row) -> Dict[Any, Any]:
     d = {}
