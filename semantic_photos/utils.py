@@ -11,7 +11,6 @@ def describe_people_in_scene(people: List[str]) -> str:
 def describe_geo_location(geos: List[Dict[str, Any]]):
     names = []
     for g in geos:
-        print(g)
         names.append(f"{g['toponymName']}, {g['adminName1']}")
 
     if len(names) == 1:
