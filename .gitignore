@@ -1,7 +1,7 @@
 # IDE and environment files
 .idea/
 .vscode/*
-!.vscode/launch.json
+# !.vscode/launch.json
 **/.env
 
 # Python
@@ -13,14 +13,15 @@
 *.ipynb
 ./ipynb_checkpoints/
 
-# Data files and databases
+# Databases
+*.db
+*.db3
+*.sqlite3
+
+# Data files
 **/*.json
-!.vscode/launch.json
-!apps/language_models/queries/*.json
 **/*.csv
 **/*.xlsx
-**/*.db
-**/*.db3
 *.graphml
 *.gpickle
 *.zip
@@ -36,4 +37,5 @@ models/*
 
 # Scratch code and testing (not unittests)
 **/scratch
+**/unittests
 **/tests

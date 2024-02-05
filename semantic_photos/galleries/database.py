@@ -1,4 +1,5 @@
 from typing import Dict, Iterator, Any
+from datetime import datetime
 import warnings
 import sqlite3
 import sys
@@ -13,8 +14,8 @@ class ReaderBase:
     """Base reader class for photo libraries.
     """
     ALLOWED_TYPES = frozenset([
-        "jpg"
-        , "png"
+        "jpg",
+        "png"
     ])
 
     @staticmethod
@@ -89,7 +90,7 @@ class DigikamReader(ReaderBase):
         query = """
         SELECT alb.id AS album_id
         , img.id AS image_id
-        , alb.relativePath AS relative_path
+        , alb.relativePath
         , img.name
         , info.creationDate AS creation_date
         , pos.latitudeNumber AS latitude
@@ -110,7 +111,14 @@ class DigikamReader(ReaderBase):
         WHERE alb.id = ?;
         """
 
-        for row in self.__cursor.execute(query, (album_id,)):
+        self.__cursor.execute(query, (album_id,))
+        for row in self.__cursor:
+            relative_path: str = row["relativePath"]
+            if relative_path.startswith('/'):
+                relative_path = relative_path[1:]
+
+            row["relativePath"] = relative_path
+            row["creation_date"] = datetime.strptime(row["creation_date"], '%Y-%m-%dT%H:%M:%S.%f')
             yield row
 
     @property
@@ -137,6 +145,10 @@ class DigikamReader(ReaderBase):
                 "count": self.file_count(path)
             }
         return output
+
+    @property
+    def count(self):
+        return self.__cursor.rowcount
 
     @property
     def volume_map(self):
