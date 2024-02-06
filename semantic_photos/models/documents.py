@@ -1,9 +1,9 @@
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any
 import calendar
 
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings
-from langchain.vectorstores.chroma import Chroma
 from langchain.schema import Document
+from langchain_community.vectorstores.chroma import Chroma
 
 from .schema import ImageData
 from . import HUGGINGFACE_CACHE
@@ -31,7 +31,7 @@ class ImageDocument:
             embedding_function=self.model
         )
 
-    def add_images(self, images: List[ImageData]):
+    def add_images(self, images: List[ImageData]) -> None:
         documents = []
 
         for img in images:
@@ -51,10 +51,18 @@ class ImageDocument:
 
         self.db.add_documents(documents=documents)
 
-    def query(self, query: str):
+    def query(
+        self,
+        query: str,
+        n_results: int = 10,
+        where: Optional[Dict[str, str]] = None,
+        where_document: Optional[Dict[str, str]] = None
+    ) -> List[Tuple[Document, float]]:
         hits = self.db.similarity_search_with_score(
             query=query,
-            k=10
+            k=n_results,
+            filter=where,
+            where_document=where_document
         )
         return hits
 

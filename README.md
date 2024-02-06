@@ -75,7 +75,9 @@ with DigikamReader(path="/absolute/path/to/photo/library") as db:
         
         if len(metadata) > 0:
             docs.add_images(metadata)
-            metadata.clear() 
+            metadata.clear()
+
+rev_geo_coder.teardown()
 ```
 This will create a ChromaDB database within the directory set by `MODEL_CACHE_DIR`. The database can be queried like
 ```python
@@ -84,7 +86,16 @@ docs.query("Three people wearing sunglasses swimming in a pool near Pacific Beac
 
 ## Searching
 
-Coming soon!
+<center><img src="img/semantic_photos_example.png" alt="drawing" width="1000"/></center>
+
+To start the search app simply run
+```bash
+python -m semantic_photos.app
+```
+This will start a Gradio app server at `http://localhost:7860`. This looks for a ChromaDB database located at `MODEL_CACHE_DIR`. You can override this location if your Chroma file is located elsewhere by running
+```bash
+python -m semantic_photos.app --chroma_path=<absolute_path>
+```
 
 ## Limitations
 
