@@ -56,7 +56,8 @@ def build_app() -> gr.Blocks:
                 columns=[4],
                 rows=[3],
                 object_fit="contain",
-                height="75vh"
+                height="75vh",
+                interactive=False
             )
 
         # pylint: disable=no-member
