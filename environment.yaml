@@ -1,0 +1,11 @@
+name: semantic-photos
+dependencies:
+  - pip
+  - python=3.10
+  - pytorch::pytorch=2.2
+  - requests
+  - pip:
+    - chromadb
+    - gradio
+    - langchain
+    - transformers

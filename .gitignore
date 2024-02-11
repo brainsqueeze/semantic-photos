@@ -16,6 +16,7 @@
 # Databases
 *.db
 *.db3
+*.sqlite
 *.sqlite3
 
 # Data files
