@@ -1,4 +1,5 @@
-from typing import Dict, Iterator, Any
+from typing import Dict, Iterator, Optional, Any
+from dataclasses import dataclass
 from datetime import datetime
 import warnings
 import sqlite3
@@ -8,6 +9,18 @@ import re
 
 Cursor = sqlite3.Cursor
 Row = sqlite3.Row
+
+
+@dataclass
+class Media:
+    album_id: int
+    image_id: int
+    image_file_name: str
+    creation_date: str
+    relative_path: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    people_names: Optional[str] = None
 
 
 class ReaderBase:
@@ -86,7 +99,7 @@ class DigikamReader(ReaderBase):
                     "relative": specific_path
                 }
 
-    def stream_media_from_album(self, album_id: int) -> Iterator[Dict[str, Any]]:
+    def stream_media_from_album(self, album_id: int) -> Iterator[Media]:
         query = """
         SELECT alb.id AS album_id
         , img.id AS image_id
@@ -119,7 +132,17 @@ class DigikamReader(ReaderBase):
 
             row["relativePath"] = relative_path
             row["creation_date"] = datetime.strptime(row["creation_date"], '%Y-%m-%dT%H:%M:%S.%f')
-            yield row
+            # yield row
+            yield Media(
+                album_id=row["album_id"],
+                image_id=row["image_id"],
+                image_file_name=row["name"],
+                relative_path=relative_path,
+                creation_date=datetime.strptime(row["creation_date"], '%Y-%m-%dT%H:%M:%S.%f'),
+                lat=row["latitude"],
+                lon=row["longitude"],
+                people_names=row["people_names"]
+            )
 
     @property
     def albums(self) -> Dict[str, Dict[str, Any]]:
@@ -153,6 +176,37 @@ class DigikamReader(ReaderBase):
     @property
     def volume_map(self):
         return self.__volume_map
+
+    def teardown(self):
+        self.__cursor.close()
+        self.__connection.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.teardown()
+
+
+class MacPhotosReader(ReaderBase):
+
+    def __init__(
+        self,
+        path: str,
+        core_db: str = "Photos.sqlite",
+    ):
+        self.__connection = sqlite3.connect(database=os.path.join(path, core_db))
+        self.__connection.row_factory = self._dict_factory
+        self.__cursor = self.__connection.cursor()
+    
+    @property
+    def albums(self) -> Dict[str, Dict[str, Any]]:
+        output = {}
+        return {}
+
+    @property
+    def count(self):
+        return self.__cursor.rowcount
 
     def teardown(self):
         self.__cursor.close()

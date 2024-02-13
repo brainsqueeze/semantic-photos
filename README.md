@@ -49,21 +49,21 @@ with DigikamReader(path="/absolute/path/to/photo/library") as db:
             total=albums[album]["count"],
             desc=f"Loading {album}"
         ):
-            meta = albums[record["relativePath"]]
+            meta = albums[record.relative_path]
             img_data = ImageData(
-                path=os.path.join(meta["path"], record["name"]),
+                path=os.path.join(meta["path"], record.image_file_name),
                 album_name=meta["name"],
-                file_name=record["name"],
-                created=record["creation_date"],
-                caption=captioner.caption(os.path.join(meta["path"], record["name"]))[0]["generated_text"],
+                file_name=record.image_file_name,
+                created=record.creation_date,
+                caption=captioner.caption(os.path.join(meta["path"], record.image_file_name))[0]["generated_text"],
             )
 
-            if record["people_names"]:
-                img_data.people_description = describe_people_in_scene(record["people_names"].split(','))
-            if record["latitude"] and record["longitude"]:
+            if record.people_names:
+                img_data.people_description = describe_people_in_scene(record.people_names.split(','))
+            if record.lat and record.lon:
                 geos = rev_geo_coder.find_nearby_place_name(
-                    latitude=record["latitude"],
-                    longitude=record["longitude"]
+                    latitude=record.lat,
+                    longitude=record.lon
                 )
                 img_data.geo_description = describe_geo_location(geos.get("geonames", []))
 
