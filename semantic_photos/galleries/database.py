@@ -1,8 +1,10 @@
 from typing import Dict, Iterator, Optional, Any
+from tempfile import TemporaryDirectory
 from dataclasses import dataclass
 from datetime import datetime
 import warnings
 import sqlite3
+import shutil
 import sys
 import os
 import re
@@ -16,7 +18,7 @@ class Media:
     album_id: int
     image_id: int
     image_file_name: str
-    creation_date: str
+    creation_date: datetime
     relative_path: Optional[str] = None
     lat: Optional[float] = None
     lon: Optional[float] = None
@@ -28,7 +30,8 @@ class ReaderBase:
     """
     ALLOWED_TYPES = frozenset([
         "jpg",
-        "png"
+        "png",
+        "heic"
     ])
 
     @staticmethod
@@ -85,6 +88,7 @@ class DigikamReader(ReaderBase):
             if (m := self.UUID_PATTERN.match(row["identifier"])):
                 volume_uuid = m.group(3)
 
+                root = None
                 if sys.platform == "linux":
                     root = os.path.join("/mnt", volume_uuid.upper())
                 else:
@@ -131,7 +135,7 @@ class DigikamReader(ReaderBase):
                 relative_path = relative_path[1:]
 
             row["relativePath"] = relative_path
-            row["creation_date"] = datetime.strptime(row["creation_date"], '%Y-%m-%dT%H:%M:%S.%f')
+            # row["creation_date"] = datetime.strptime(row["creation_date"], '%Y-%m-%dT%H:%M:%S.%f')
             # yield row
             yield Media(
                 album_id=row["album_id"],
@@ -192,17 +196,77 @@ class MacPhotosReader(ReaderBase):
 
     def __init__(
         self,
-        path: str,
+        photolibrary_path: str,
         core_db: str = "Photos.sqlite",
     ):
-        self.__connection = sqlite3.connect(database=os.path.join(path, core_db))
+        if photolibrary_path.startswith('~'):
+            photolibrary_path = os.path.expanduser(photolibrary_path)
+
+        # copy database to a temporary directory, connect to it and then do a back up to an in-memory
+        with TemporaryDirectory(prefix="semanticphotos_osx_") as tmpdir:
+            try:
+                shutil.copy(
+                    src=os.path.join(photolibrary_path, "database", core_db),
+                    dst=os.path.join(tmpdir, core_db)
+                )
+                source = sqlite3.connect(database=os.path.join(tmpdir, core_db))
+                self.__connection = sqlite3.connect(':memory:')
+                source.backup(self.__connection)
+            except Exception as ex:
+                print(ex)
         self.__connection.row_factory = self._dict_factory
         self.__cursor = self.__connection.cursor()
-    
+
+        self.__relative_file_path = os.path.join(photolibrary_path, "originals")
+
     @property
     def albums(self) -> Dict[str, Dict[str, Any]]:
         output = {}
-        return {}
+        return output
+
+    def stream_media_from_album(self, album_id: str) -> Iterator[Media]:
+        query = """
+        SELECT ZASSET.ZFILENAME AS name
+        , ZASSET.ZDIRECTORY AS relative_dir
+        , ZASSET.ZLATITUDE AS latitude
+        , ZASSET.ZLONGITUDE AS longitude
+        , ZASSET.ZDATECREATED + 978307200 AS creation_date
+        , people.people_names
+        , ZMOMENTLIST.ZSORTINDEX AS yearmonth
+        FROM ZASSET
+        LEFT JOIN (
+            SELECT ZDETECTEDFACE.ZASSET
+            , GROUP_CONCAT(ZPERSON.ZFULLNAME) AS people_names
+            FROM ZDETECTEDFACE
+            INNER JOIN ZPERSON ON ZPERSON.Z_PK = ZDETECTEDFACE.ZPERSON
+            WHERE ZPERSON.ZFULLNAME IS NOT NULL
+            AND ZPERSON.ZFULLNAME <> ''
+            GROUP BY ZDETECTEDFACE.ZASSET
+        ) AS people ON ZASSET.Z_PK = people.ZASSET
+        INNER JOIN ZMOMENT ON ZASSET.ZMOMENT = ZMOMENT.Z_PK
+        INNER JOIN ZMOMENTLIST ON ZMOMENT.ZMEGAMOMENTLIST = ZMOMENTLIST.Z_PK
+        WHERE ZASSET.ZTRASHEDSTATE = 0
+        AND ZMOMENTLIST.ZSORTINDEX = ?;"""
+
+        self.__cursor.execute(query, (album_id,))
+        for row in self.__cursor:
+            if row["name"].split('.')[-1] in self.ALLOWED_TYPES:
+                relative_path: str = row["relative_dir"]
+                if relative_path.startswith('/'):
+                    relative_path = relative_path[1:]
+
+                relative_path = os.path.join(self.__relative_file_path, relative_path)
+
+                yield Media(
+                    album_id=row["yearmonth"],
+                    image_id=None,
+                    image_file_name=row["name"],
+                    relative_path=relative_path,
+                    creation_date=datetime.utcfromtimestamp(row["creation_date"]),
+                    lat=row["latitude"],
+                    lon=row["longitude"],
+                    people_names=row["people_names"]
+                )
 
     @property
     def count(self):
