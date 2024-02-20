@@ -1,6 +1,5 @@
 from typing import Any
 from urllib.parse import urljoin
-import os
 
 from urllib3.util.retry import Retry
 import requests
@@ -8,10 +7,9 @@ import requests
 
 class GeonamesReverseGeocoder:
     BASE_URL = "http://api.geonames.org"
-    GEONAMES_USERNAME = os.environ["GEONAMES_USERNAME"]
     PRECISION = 3
 
-    def __init__(self):
+    def __init__(self, geonames_user: str):
         retry_strategy = Retry(
             total=1,
             status_forcelist=[429, 500, 502, 503, 504],
@@ -22,12 +20,12 @@ class GeonamesReverseGeocoder:
         self.__session.mount("https://", adapter)
         self.__session.mount("http://", adapter)
 
+        self.user = geonames_user
         self.__cache = {}
 
-    @classmethod
-    def _build_request(cls, latitude: float, longitude: float):
+    def _build_request(self, latitude: float, longitude: float):
         payload = {
-            "username": cls.GEONAMES_USERNAME,
+            "username": self.user,
             "lat": latitude,
             "lng": longitude
         }

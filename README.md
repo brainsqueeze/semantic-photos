@@ -34,7 +34,7 @@ from semantic_photos.models.schema import ImageData
 from semantic_photos.utils import describe_people_in_scene, describe_geo_location
 
 captioner = ImageCaption(device="cpu")  # if CUDA is available then set `device="cuda"`
-rev_geo_coder = GeonamesReverseGeocoder()
+rev_geo_coder = GeonamesReverseGeocoder(geonames_user=os.getenv("GEONAMES_USERNAME"))
 docs = ImageDocument(os.environ["MODEL_CACHE_DIR"])
 
 album_names = [...]
