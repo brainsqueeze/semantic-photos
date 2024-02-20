@@ -15,6 +15,9 @@ Row = sqlite3.Row
 
 @dataclass
 class Media:
+    """Media data from photo libraries
+    """
+
     album_id: int
     image_id: int
     image_file_name: str
@@ -30,6 +33,7 @@ class ReaderBase:
     """
     ALLOWED_TYPES = frozenset([
         "jpg",
+        "jpeg",
         "png",
         "heic"
     ])
@@ -42,6 +46,19 @@ class ReaderBase:
         return d
 
     def file_count(self, dir_path: str) -> int:
+        """Count the number of files that are of the allowed types
+
+        Parameters
+        ----------
+        dir_path : str
+            Album path
+
+        Returns
+        -------
+        int
+            Count of allowed media files
+        """
+
         return sum(
             1 for _ in os.listdir(dir_path)
             if os.path.isfile(os.path.join(dir_path, _))
@@ -50,7 +67,8 @@ class ReaderBase:
 
     @property
     def albums(self):
-        pass
+        """Lookup of supported albums in the photo library
+        """
 
 
 class DigikamReader(ReaderBase):
@@ -104,6 +122,17 @@ class DigikamReader(ReaderBase):
                 }
 
     def stream_media_from_album(self, album_id: int) -> Iterator[Media]:
+        """Stream media files and metadata from the specified albumn
+
+        Parameters
+        ----------
+        album_id : int
+
+        Yields
+        ------
+        Iterator[Media]
+        """
+
         query = """
         SELECT alb.id AS album_id
         , img.id AS image_id
@@ -135,8 +164,6 @@ class DigikamReader(ReaderBase):
                 relative_path = relative_path[1:]
 
             row["relativePath"] = relative_path
-            # row["creation_date"] = datetime.strptime(row["creation_date"], '%Y-%m-%dT%H:%M:%S.%f')
-            # yield row
             yield Media(
                 album_id=row["album_id"],
                 image_id=row["image_id"],
@@ -178,10 +205,20 @@ class DigikamReader(ReaderBase):
         return self.__cursor.rowcount
 
     @property
-    def volume_map(self):
+    def volume_map(self) -> Dict[Any, Any]:
+        """Disk volume info relevant for Digikam databases
+
+        Returns
+        -------
+        Dict[Any, Any]
+        """
+
         return self.__volume_map
 
     def teardown(self):
+        """Close all SQLite connections and cursor objects
+        """
+
         self.__cursor.close()
         self.__connection.close()
 
@@ -193,6 +230,15 @@ class DigikamReader(ReaderBase):
 
 
 class MacPhotosReader(ReaderBase):
+    """Reader class for MacOS photo library databases.
+
+    Parameters
+    ----------
+    photolibrary_path : str
+        Path to the MacOS photo library
+    core_db : str, optional
+        Name of the SQLite database to use, by default "Photos.sqlite"
+    """
 
     def __init__(
         self,
@@ -221,11 +267,45 @@ class MacPhotosReader(ReaderBase):
 
     @property
     def albums(self) -> Dict[str, Dict[str, Any]]:
+        query = f"""
+        SELECT ZMOMENTLIST.ZSORTINDEX AS yearmonth
+        , COUNT(*) AS size
+        FROM ZASSET
+        INNER JOIN ZMOMENT ON ZASSET.ZMOMENT = ZMOMENT.Z_PK
+        INNER JOIN ZMOMENTLIST ON ZMOMENT.ZMEGAMOMENTLIST = ZMOMENTLIST.Z_PK
+        WHERE ZASSET.ZTRASHEDSTATE = 0
+        AND LOWER(SUBSTR(
+            ZASSET.ZFILENAME,
+            INSTR(ZASSET.ZFILENAME, '.') + 1,
+            LENGTH(ZASSET.ZFILENAME) - INSTR(ZASSET.ZFILENAME, '.')
+        )) IN ({', '.join(['?'] * len(self.ALLOWED_TYPES))})
+        GROUP BY ZMOMENTLIST.ZSORTINDEX;"""
+
         output = {}
+        self.__cursor.execute(query, (*self.ALLOWED_TYPES,))
+        for row in self.__cursor:
+            album = str(row["yearmonth"])
+            output[album] = {
+                "album_id": row["yearmonth"],
+                "name": f"{album[:4]}-{album[4:]}",
+                "path": None,
+                "count": row["size"]
+            }
         return output
 
     def stream_media_from_album(self, album_id: str) -> Iterator[Media]:
-        query = """
+        """Stream media files and metadata from the specified albumn
+
+        Parameters
+        ----------
+        album_id : int
+
+        Yields
+        ------
+        Iterator[Media]
+        """
+
+        query = f"""
         SELECT ZASSET.ZFILENAME AS name
         , ZASSET.ZDIRECTORY AS relative_dir
         , ZASSET.ZLATITUDE AS latitude
@@ -246,9 +326,14 @@ class MacPhotosReader(ReaderBase):
         INNER JOIN ZMOMENT ON ZASSET.ZMOMENT = ZMOMENT.Z_PK
         INNER JOIN ZMOMENTLIST ON ZMOMENT.ZMEGAMOMENTLIST = ZMOMENTLIST.Z_PK
         WHERE ZASSET.ZTRASHEDSTATE = 0
+        AND LOWER(SUBSTR(
+            ZASSET.ZFILENAME,
+            INSTR(ZASSET.ZFILENAME, '.') + 1,
+            LENGTH(ZASSET.ZFILENAME) - INSTR(ZASSET.ZFILENAME, '.')
+        )) IN ({', '.join(['?'] * len(self.ALLOWED_TYPES))})
         AND ZMOMENTLIST.ZSORTINDEX = ?;"""
 
-        self.__cursor.execute(query, (album_id,))
+        self.__cursor.execute(query, (*self.ALLOWED_TYPES, album_id,))
         for row in self.__cursor:
             if row["name"].split('.')[-1] in self.ALLOWED_TYPES:
                 relative_path: str = row["relative_dir"]
@@ -273,6 +358,9 @@ class MacPhotosReader(ReaderBase):
         return self.__cursor.rowcount
 
     def teardown(self):
+        """Close all SQLite connections and cursor objects
+        """
+
         self.__cursor.close()
         self.__connection.close()
 
