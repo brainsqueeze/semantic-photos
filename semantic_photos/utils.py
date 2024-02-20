@@ -2,13 +2,17 @@ from typing import List, Dict, Any
 
 
 def describe_people_in_scene(people: List[str]) -> str:
+    if not people:
+        return ""
     if len(people) == 1:
         return f"The scene contains {people[0]}."
 
     return f"The scene contains {', '.join(people[:-1])} and {people[-1]}."
 
 
-def describe_geo_location(geos: List[Dict[str, Any]]):
+def describe_geo_location(geos: List[Dict[str, Any]]) -> str:
+    if not geos:
+        return ""
     names = []
     for g in geos:
         names.append(f"{g['toponymName']}, {g['adminName1']}")

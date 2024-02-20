@@ -35,11 +35,15 @@ def search(query: str) -> List[Tuple[str, str]]:
     """
 
     hits = photo_store.query(query, n_results=12)
-    return [(
-        # hit.metadata["path"],
-        Image.open(hit.metadata["path"]),
-        f"Score: {round(score, 2)}"
-    ) for hit, score in hits]
+    scale = 0.1
+
+    output = []
+    for hit, score in hits:
+        img = Image.open(hit.metadata["path"])
+        img = img.resize((int(img.size[0] * scale), int(img.size[1] * scale)))
+        output.append((img, f"Score: {round(score, 2)}"))
+
+    return output
 
 
 def build_app() -> gr.Blocks:
