@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Dict, Any
 from urllib.parse import urljoin
 
 from urllib3.util.retry import Retry
@@ -6,6 +6,14 @@ import requests
 
 
 class GeonamesReverseGeocoder:
+    """Convenience wrapper to some of the reverse geo-coding APIs from Geonames.
+    See https://www.geonames.org/export/web-services.html for more details.
+
+    Parameters
+    ----------
+    geonames_user : str
+        Geonames API username for authentication
+    """
     BASE_URL = "http://api.geonames.org"
     PRECISION = 3
 
@@ -23,7 +31,7 @@ class GeonamesReverseGeocoder:
         self.user = geonames_user
         self.__cache = {}
 
-    def _build_request(self, latitude: float, longitude: float):
+    def _build_request(self, latitude: float, longitude: float) -> Dict[str, Any]:
         payload = {
             "username": self.user,
             "lat": latitude,
@@ -41,7 +49,7 @@ class GeonamesReverseGeocoder:
         lng = round(longitude, self.PRECISION)
         self.__cache[(lat, lng, route)] = data
 
-    def _query(self, latitude: float, longitude: float, route: str):
+    def _query(self, latitude: float, longitude: float, route: str) -> Dict[str, Any]:
         cache_hit = self.__check_cache(latitude=latitude, longitude=longitude, route=route)
         if cache_hit is not None:
             return cache_hit
@@ -59,14 +67,41 @@ class GeonamesReverseGeocoder:
         return data
 
 
-    def find_nearby_place_name(self, latitude: float, longitude: float):
+    def find_nearby_place_name(self, latitude: float, longitude: float) -> Dict[str, Any]:
+        """Reverse geo-coding for nearby place names only.
+
+        Parameters
+        ----------
+        latitude : float
+        longitude : float
+
+        Returns
+        -------
+        Dict[str, Any]
+        """
+
         data = self._query(latitude=latitude, longitude=longitude, route="findNearbyPlaceNameJSON")
         return data
 
-    def find_nearby(self, latitude: float, longitude: float):
+    def find_nearby(self, latitude: float, longitude: float) -> Dict[str, Any]:
+        """Reverse geo-coding for nearby places or points of interest.
+
+        Parameters
+        ----------
+        latitude : float
+        longitude : float
+
+        Returns
+        -------
+        Dict[str, Any]
+        """
+
         data = self._query(latitude=latitude, longitude=longitude, route="findNearbyJSON")
         return data
 
     def teardown(self):
+        """Deletes cache and closes the session.
+        """
+
         self.__cache.clear()
         self.__session.close()

@@ -14,11 +14,11 @@
 ./ipynb_checkpoints/
 
 # Databases
-*.db
-*.db3
-*.sqlite
-*.sqlite3
-*.bin
+**/*.db
+**/*.db3
+**/*.sqlite
+**/*.sqlite3
+**/*.bin
 
 # Data files
 **/*.json

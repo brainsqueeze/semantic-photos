@@ -9,6 +9,7 @@ import sys
 import os
 import re
 
+Connection = sqlite3.Connection
 Cursor = sqlite3.Cursor
 Row = sqlite3.Row
 
@@ -28,7 +29,7 @@ class Media:
     people_names: Optional[str] = None
 
 
-class ReaderBase:
+class SqliteReaderBase:
     """Base reader class for photo libraries.
     """
     ALLOWED_TYPES = frozenset([
@@ -37,6 +38,8 @@ class ReaderBase:
         "png",
         "heic"
     ])
+    __cursor: Cursor
+    __connection: Connection
 
     @staticmethod
     def _dict_factory(cursor: Cursor, row: Row) -> Dict[Any, Any]:
@@ -70,8 +73,28 @@ class ReaderBase:
         """Lookup of supported albums in the photo library
         """
 
+    @property
+    def count(self) -> int | None:
+        """Property to return the count of the query. `rowcount` in Sqlite3 does not return the actual rowcount,
+        changes to this property will be coming in the future.
 
-class DigikamReader(ReaderBase):
+        Returns
+        -------
+        int | None
+            Query row count
+        """
+
+        return self.__cursor.rowcount
+
+    def teardown(self):
+        """Close all SQLite connections and cursor objects
+        """
+
+        self.__cursor.close()
+        self.__connection.close()
+
+
+class DigikamReader(SqliteReaderBase):
     """Reader class for Digikam photo library databases. This connects to the core database as well as the recognition
     database. Currently this is only supported on Linux operating systems, with cross-platform support coming in the
     future.
@@ -201,10 +224,6 @@ class DigikamReader(ReaderBase):
         return output
 
     @property
-    def count(self):
-        return self.__cursor.rowcount
-
-    @property
     def volume_map(self) -> Dict[Any, Any]:
         """Disk volume info relevant for Digikam databases
 
@@ -215,13 +234,6 @@ class DigikamReader(ReaderBase):
 
         return self.__volume_map
 
-    def teardown(self):
-        """Close all SQLite connections and cursor objects
-        """
-
-        self.__cursor.close()
-        self.__connection.close()
-
     def __enter__(self):
         return self
 
@@ -229,7 +241,7 @@ class DigikamReader(ReaderBase):
         self.teardown()
 
 
-class MacPhotosReader(ReaderBase):
+class MacPhotosReader(SqliteReaderBase):
     """Reader class for MacOS photo library databases.
 
     Parameters
@@ -352,17 +364,6 @@ class MacPhotosReader(ReaderBase):
                     lon=row["longitude"],
                     people_names=row["people_names"]
                 )
-
-    @property
-    def count(self):
-        return self.__cursor.rowcount
-
-    def teardown(self):
-        """Close all SQLite connections and cursor objects
-        """
-
-        self.__cursor.close()
-        self.__connection.close()
 
     def __enter__(self):
         return self

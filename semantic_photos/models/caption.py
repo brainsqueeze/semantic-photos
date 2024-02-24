@@ -41,6 +41,24 @@ class ImageCaption:
         }
 
     def caption(self, images: Union[str, List[str]], **pipeline_kwargs) -> List[Dict[str, Any]]:
+        """Runs the image captioning pipeline.
+
+        Parameters
+        ----------
+        images : Union[str, List[str]]
+            File path or list of image filepaths
+
+        Returns
+        -------
+        List[Dict[str, Any]]
+            image-to-text transformer output
+
+        Raises
+        ------
+        TypeError
+            Raised if the supplied image(s) is not a string or list of strings
+        """
+
         output = []
         if isinstance(images, str):
             output.extend(self.pipeline(images, **pipeline_kwargs))
@@ -55,5 +73,12 @@ class ImageCaption:
         return output
 
     @property
-    def config(self):
+    def config(self) -> Dict[str, Any]:
+        """Parameters used for image-to-text inferencing.
+
+        Returns
+        -------
+        Dict[str, Any]
+        """
+
         return self.__config
