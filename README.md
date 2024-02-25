@@ -2,6 +2,13 @@
 
 Make you photo albums semantically search-able. Using scene captioning combined with tagged people and locations make your albums work better for you and recall memories faster and naturally.
 
+Photo searching is typically restricted to tag filtering and keyword searching if images have description notes manually added. This app aims to make photo libraries easier and more natural to search through by creating a search index based on
+* image-to-text auto-captioning
+* reverse geo coding to add place name descriptions
+* descriptions of named people in the image
+
+This app leverages your existing photo libraries and creates a light weight database to run searches without the need to copy, move or modify your original images. This currently supports JPEG, PNG, and HEIC image types.
+
 ## Getting started
 
 Clone the repository
