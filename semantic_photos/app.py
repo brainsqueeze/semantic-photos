@@ -59,11 +59,11 @@ def search(query: str) -> List[Tuple[str, str]]:
             e = getattr(img, '_getexif')()
             if e is not None:
                 if e.get(orientation_key) == 3:
-                    img = img.transpose(Image.ROTATE_180)
+                    img = img.transpose(Image.ROTATE_180)  # pylint: disable=no-member
                 elif e.get(orientation_key) == 6:
-                    img = img.transpose(Image.ROTATE_270)
+                    img = img.transpose(Image.ROTATE_270)  # pylint: disable=no-member
                 elif e.get(orientation_key) == 8:
-                    img = img.transpose(Image.ROTATE_90)
+                    img = img.transpose(Image.ROTATE_90)  # pylint: disable=no-member
         img = img.resize((int(img.size[0] * scale), int(img.size[1] * scale)))
 
         if isinstance(score, (float, int)):
