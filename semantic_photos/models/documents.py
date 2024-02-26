@@ -65,6 +65,9 @@ class ImageVectorStore:
                     "year": img.created.year,
                     "month": calendar.month_name[img.created.month],
                     "day": calendar.day_name[img.created.weekday()],
+                    "caption": img.caption,
+                    "people_description": img.people_description,
+                    "location_description": img.geo_description,
                     "@date": img.created.date().strftime('%Y-%m-%d'),
                     "@timestamp": img.created.timestamp()
                 }
