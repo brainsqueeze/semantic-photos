@@ -189,7 +189,7 @@ class DigikamReader(SqliteReaderBase):
         AND {self._file_type_filter_where('img.name')};
         """
 
-        self._cursor.execute(query, (album_id,))
+        self._cursor.execute(query, (album_id, *self.ALLOWED_TYPES,))
         for row in self._cursor:
             relative_path: str = row["relativePath"]
             if relative_path.startswith('/'):
