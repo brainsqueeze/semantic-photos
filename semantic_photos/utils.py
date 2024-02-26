@@ -40,8 +40,8 @@ def describe_geo_location(geos: List[Dict[str, Any]]) -> str:
         return ""
     names = []
     for g in geos:
-        names.append(f"{g['toponymName']}, {g['adminName1']}")
+        names.append(f"{g['toponymName']}, {g['adminName2']}, {g['adminName1']}")
 
     if len(names) == 1:
         return f"The scene takes place in {names[0]}."
-    return f"The scene contains {', '.join(names[:-1])} and {names[-1]}."
+    return f"The scene takes place in {', '.join(names[:-1])} and {names[-1]}."
