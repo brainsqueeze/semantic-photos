@@ -124,7 +124,8 @@ def build(
     library_type: Supported,
     library_dir: str,
     chroma_path: str,
-    albums: List[str]
+    albums: List[str],
+    geonames_user: str = os.getenv("GEONAMES_USERNAME"),
 ) -> int:
     """Database builder
 
@@ -138,6 +139,8 @@ def build(
         Absolute path to the directory in which to save the ChromaDB assets
     albums : List[str]
         Albums to process
+    geonames_user : str
+        Registered Geonames API username, by default os.getenv("GEONAMES_USERNAME")
 
     Returns
     -------
@@ -157,9 +160,9 @@ def build(
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     captioner = ImageCaption(device=device, batch_size=16)
-    rev_geo_coder = GeonamesReverseGeocoder(geonames_user=os.getenv("GEONAMES_USERNAME"))
+    rev_geo_coder = GeonamesReverseGeocoder(geonames_user=geonames_user)
 
-    vector_store = ImageVectorStore(chroma_persist_path=chroma_path)
+    vector_store = ImageVectorStore(chroma_persist_path=chroma_path, model_kwargs={"device": "cuda"})
 
     image_batch = []
     for image, metadata in streamer(photo_library_dir=library_dir, albums=albums):
@@ -184,6 +187,7 @@ def build(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--geonames_user", type=str, help="Username for Geonames API")
     parser.add_argument("--type", type=Supported.argparse, choices=list(Supported))
     parser.add_argument("--photo_lib_path", type=str, help="Absolute path to the photo library to process")
     parser.add_argument("--chroma_path", type=str, help="Override the path to the ChromaDB database", required=False)
@@ -210,5 +214,6 @@ if __name__ == '__main__':
         library_type=args.type,
         library_dir=args.photo_lib_path,
         chroma_path=args.chroma_path,
-        albums=args.album
+        albums=args.album,
+        geonames_user=args.geonames_user
     )
