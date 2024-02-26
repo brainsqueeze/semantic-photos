@@ -5,6 +5,10 @@ from urllib3.util.retry import Retry
 import requests
 
 
+class GeonamesAuthenticationError(Exception):
+    ...
+
+
 class GeonamesReverseGeocoder:
     """Convenience wrapper to some of the reverse geo-coding APIs from Geonames.
     See https://www.geonames.org/export/web-services.html for more details.
@@ -33,6 +37,12 @@ class GeonamesReverseGeocoder:
     )
 
     def __init__(self, geonames_user: str):
+        if not geonames_user:
+            raise GeonamesAuthenticationError(
+                "You must supply a username for the Geonames API. "
+                "See: https://www.geonames.org/export/web-services.html"
+            )
+
         retry_strategy = Retry(
             total=1,
             status_forcelist=[429, 500, 502, 503, 504],
@@ -70,7 +80,7 @@ class GeonamesReverseGeocoder:
         cache_hit = self.__check_cache(latitude=latitude, longitude=longitude, route=route)
         if cache_hit is not None:
             return cache_hit
-
+        
         response = self.__session.get(
             url=urljoin(self.BASE_URL, route),
             params=self._build_request(latitude=latitude, longitude=longitude)

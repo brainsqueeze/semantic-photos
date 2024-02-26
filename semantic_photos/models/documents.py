@@ -37,7 +37,7 @@ class ImageVectorStore:
         self.model = HuggingFaceEmbeddings(
             model_name=model_name,
             cache_folder=cache_folder,
-            **(model_kwargs or {})
+            model_kwargs=model_kwargs
         )
         self.db = Chroma(
             persist_directory=chroma_persist_path,
@@ -53,27 +53,27 @@ class ImageVectorStore:
         images : List[ImageData]
         """
 
-        documents = []
+        ids = []
+        texts = []
+        metadatas = []
 
         for img in images:
-            documents.append(Document(
-                page_content=img.text,
-                metadata={
-                    "path": img.path,
-                    "album": img.album_name,
-                    "name": img.file_name,
-                    "year": img.created.year,
-                    "month": calendar.month_name[img.created.month],
-                    "day": calendar.day_name[img.created.weekday()],
-                    "caption": img.caption,
-                    "people_description": img.people_description,
-                    "location_description": img.geo_description,
-                    "@date": img.created.date().strftime('%Y-%m-%d'),
-                    "@timestamp": img.created.timestamp()
-                }
-            ))
-
-        self.db.add_documents(documents=documents)
+            ids.append(img.path)
+            texts.append(img.text)
+            metadatas.append({
+                "path": img.path,
+                "album": img.album_name,
+                "name": img.file_name,
+                "year": img.created.year,
+                "month": calendar.month_name[img.created.month],
+                "day": calendar.day_name[img.created.weekday()],
+                "caption": img.caption,
+                "people_description": img.people_description,
+                "location_description": img.geo_description,
+                "@date": img.created.date().strftime('%Y-%m-%d'),
+                "@timestamp": img.created.timestamp()
+            })
+        self.db.add_texts(ids=ids, texts=texts, metadatas=metadatas)
 
     def query(
         self,
