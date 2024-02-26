@@ -38,8 +38,8 @@ class SqliteReaderBase:
         "png",
         "heic"
     ])
-    __cursor: Cursor
-    __connection: Connection
+    _cursor: Cursor
+    _connection: Connection
 
     @staticmethod
     def _dict_factory(cursor: Cursor, row: Row) -> Dict[Any, Any]:
@@ -47,6 +47,14 @@ class SqliteReaderBase:
         for idx, col in enumerate(cursor.description):
             d[col[0]] = row[idx]
         return d
+    
+    def _file_type_filter_where(self, file_name_field: str) -> str:
+        return f"""
+        LOWER(SUBSTR(
+            {file_name_field},
+            INSTR({file_name_field}, '.') + 1,
+            LENGTH({file_name_field}) - INSTR({file_name_field}, '.')
+        )) IN ({', '.join(['?'] * len(self.ALLOWED_TYPES))})"""
 
     def file_count(self, dir_path: str) -> int:
         """Count the number of files that are of the allowed types
@@ -84,14 +92,14 @@ class SqliteReaderBase:
             Query row count
         """
 
-        return self.__cursor.rowcount
+        return self._cursor.rowcount
 
     def teardown(self):
         """Close all SQLite connections and cursor objects
         """
 
-        self.__cursor.close()
-        self.__connection.close()
+        self._cursor.close()
+        self._connection.close()
 
 
 class DigikamReader(SqliteReaderBase):
@@ -113,19 +121,19 @@ class DigikamReader(SqliteReaderBase):
 
     def __init__(
         self,
-        path: str,
+        photolibrary_path: str,
         core_db: str = "digikam4.db",
         recognition_db: str = "recognition.db"
     ):
-        self.__connection = sqlite3.connect(database=os.path.join(path, core_db))
-        self.__connection.row_factory = self._dict_factory
-        self.__cursor = self.__connection.cursor()
+        self._connection = sqlite3.connect(database=os.path.join(photolibrary_path, core_db))
+        self._connection.row_factory = self._dict_factory
+        self._cursor = self._connection.cursor()
 
-        self.__cursor.execute("ATTACH DATABASE ? as recog;", (os.path.join(path, recognition_db),))
-        self.__connection.commit()
+        self._cursor.execute("ATTACH DATABASE ? as recog;", (os.path.join(photolibrary_path, recognition_db),))
+        self._connection.commit()
 
         self.__volume_map = {}
-        for row in self.__cursor.execute("SELECT id, identifier, specificPath FROM AlbumRoots;"):
+        for row in self._cursor.execute("SELECT id, identifier, specificPath FROM AlbumRoots;"):
             if (m := self.UUID_PATTERN.match(row["identifier"])):
                 volume_uuid = m.group(3)
 
@@ -156,7 +164,7 @@ class DigikamReader(SqliteReaderBase):
         Iterator[Media]
         """
 
-        query = """
+        query = f"""
         SELECT alb.id AS album_id
         , img.id AS image_id
         , alb.relativePath
@@ -177,11 +185,12 @@ class DigikamReader(SqliteReaderBase):
             WHERE tp.property = 'faceEngineId'
             GROUP BY itp.imageid
         ) AS people ON img.id = people.imageid
-        WHERE alb.id = ?;
+        WHERE alb.id = ?
+        AND {self._file_type_filter_where('img.name')};
         """
 
-        self.__cursor.execute(query, (album_id,))
-        for row in self.__cursor:
+        self._cursor.execute(query, (album_id,))
+        for row in self._cursor:
             relative_path: str = row["relativePath"]
             if relative_path.startswith('/'):
                 relative_path = relative_path[1:]
@@ -200,15 +209,20 @@ class DigikamReader(SqliteReaderBase):
 
     @property
     def albums(self) -> Dict[str, Dict[str, Any]]:
-        query = """
-        SELECT id
-        , albumRoot
-        , relativePath
-        FROM Albums;
+        query = f"""
+        SELECT Albums.id
+        , Albums.albumRoot
+        , Albums.relativePath
+        , COUNT(*) AS size
+        FROM Albums
+        INNER JOIN Images ON Images.album = Albums.id
+        WHERE {self._file_type_filter_where('Images.name')}
+        GROUP BY Albums.id, Albums.albumRoot, Albums.relativePath;
         """
 
         output = {}
-        for row in self.__cursor.execute(query):
+        self._cursor.execute(query, (*self.ALLOWED_TYPES,))
+        for row in self._cursor:
             relative_path: str = row["relativePath"]
             if relative_path.startswith('/'):
                 relative_path = relative_path[1:]
@@ -219,7 +233,8 @@ class DigikamReader(SqliteReaderBase):
                 "album_id": row["id"],
                 "name": relative_path.replace('/', ' :: '),
                 "path": path,
-                "count": self.file_count(path)
+                # "count": self.file_count(path)
+                "count": row["size"]
             }
         return output
 
@@ -268,12 +283,12 @@ class MacPhotosReader(SqliteReaderBase):
                     dst=os.path.join(tmpdir, core_db)
                 )
                 source = sqlite3.connect(database=os.path.join(tmpdir, core_db))
-                self.__connection = sqlite3.connect(':memory:')
-                source.backup(self.__connection)
+                self._connection = sqlite3.connect(':memory:')
+                source.backup(self._connection)
             except Exception as ex:
                 print(ex)
-        self.__connection.row_factory = self._dict_factory
-        self.__cursor = self.__connection.cursor()
+        self._connection.row_factory = self._dict_factory
+        self._cursor = self._connection.cursor()
 
         self.__relative_file_path = os.path.join(photolibrary_path, "originals")
 
@@ -286,16 +301,12 @@ class MacPhotosReader(SqliteReaderBase):
         INNER JOIN ZMOMENT ON ZASSET.ZMOMENT = ZMOMENT.Z_PK
         INNER JOIN ZMOMENTLIST ON ZMOMENT.ZMEGAMOMENTLIST = ZMOMENTLIST.Z_PK
         WHERE ZASSET.ZTRASHEDSTATE = 0
-        AND LOWER(SUBSTR(
-            ZASSET.ZFILENAME,
-            INSTR(ZASSET.ZFILENAME, '.') + 1,
-            LENGTH(ZASSET.ZFILENAME) - INSTR(ZASSET.ZFILENAME, '.')
-        )) IN ({', '.join(['?'] * len(self.ALLOWED_TYPES))})
+        AND {self._file_type_filter_where('ZASSET.ZFILENAME')}
         GROUP BY ZMOMENTLIST.ZSORTINDEX;"""
 
         output = {}
-        self.__cursor.execute(query, (*self.ALLOWED_TYPES,))
-        for row in self.__cursor:
+        self._cursor.execute(query, (*self.ALLOWED_TYPES,))
+        for row in self._cursor:
             album = str(row["yearmonth"])
             output[album] = {
                 "album_id": row["yearmonth"],
@@ -338,15 +349,11 @@ class MacPhotosReader(SqliteReaderBase):
         INNER JOIN ZMOMENT ON ZASSET.ZMOMENT = ZMOMENT.Z_PK
         INNER JOIN ZMOMENTLIST ON ZMOMENT.ZMEGAMOMENTLIST = ZMOMENTLIST.Z_PK
         WHERE ZASSET.ZTRASHEDSTATE = 0
-        AND LOWER(SUBSTR(
-            ZASSET.ZFILENAME,
-            INSTR(ZASSET.ZFILENAME, '.') + 1,
-            LENGTH(ZASSET.ZFILENAME) - INSTR(ZASSET.ZFILENAME, '.')
-        )) IN ({', '.join(['?'] * len(self.ALLOWED_TYPES))})
+        AND {self._file_type_filter_where('ZASSET.ZFILENAME')}
         AND ZMOMENTLIST.ZSORTINDEX = ?;"""
 
-        self.__cursor.execute(query, (*self.ALLOWED_TYPES, album_id,))
-        for row in self.__cursor:
+        self._cursor.execute(query, (*self.ALLOWED_TYPES, album_id,))
+        for row in self._cursor:
             if row["name"].split('.')[-1] in self.ALLOWED_TYPES:
                 relative_path: str = row["relative_dir"]
                 if relative_path.startswith('/'):

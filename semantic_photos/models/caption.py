@@ -29,6 +29,7 @@ class ImageCaption:
             task="image-to-text",
             model=model,
             device=device,
+            batch_size=batch_size,
             model_kwargs=model_kwargs
         )
         self.batch_size = batch_size
@@ -59,14 +60,14 @@ class ImageCaption:
             Raised if the supplied image(s) is not a string or list of strings
         """
 
+        pipeline_kwargs.setdefault("max_new_tokens", 32)
+
         output = []
         if isinstance(images, str):
-            output.extend(self.pipeline(images, **pipeline_kwargs))
-        elif isinstance(images, list) and all(isinstance(img, str) for img in images):
-            # NOTE: batching does not seem to work as expected with image-to-text models
-            # for out in self.pipeline(images, batch_size=self.batch_size):
-            #     output.extend(out)
-            output.extend(self.pipeline(images, **pipeline_kwargs))
+            output.append(self.pipeline(images, **pipeline_kwargs)[0]["generated_text"])
+        elif isinstance(images, (list, tuple)) and all(isinstance(img, str) for img in images):
+            for out in self.pipeline(images, batch_size=self.batch_size, **pipeline_kwargs):
+                output.append(' '.join(token["generated_text"] for token in out if token["generated_text"]))
         else:
             raise TypeError("`images` must be a string or list of strings")
 
