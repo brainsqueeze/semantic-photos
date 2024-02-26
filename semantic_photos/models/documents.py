@@ -37,7 +37,7 @@ class ImageVectorStore:
         self.model = HuggingFaceEmbeddings(
             model_name=model_name,
             cache_folder=cache_folder,
-            model_kwargs=model_kwargs
+            model_kwargs=(model_kwargs or {})
         )
         self.db = Chroma(
             persist_directory=chroma_persist_path,
