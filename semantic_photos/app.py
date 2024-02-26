@@ -23,6 +23,7 @@ args = parser.parse_args()
 
 chroma_path = args.chroma_path if args.chroma_path is not None else os.getenv("MODEL_CACHE_DIR")
 photo_store = ImageVectorStore(chroma_persist_path=chroma_path)
+OUTPUT_TYPE = "pil"
 
 
 @cache
@@ -70,11 +71,13 @@ def search(query: str) -> List[Tuple[str, str]]:
             return img, f"Score: {round(score, 2)}"
         return img, None
 
-    # output = [(hit.metadata["path"], f"Score: {round(score, 2)}") for hit, score in hits]
-    output = []
-    with ThreadPoolExecutor() as executor:
-        for o in executor.map(_load, hits):
-            output.append(o)
+    if OUTPUT_TYPE == "filepath":
+        output = [(hit.metadata["path"], f"Score: {round(score, 2)}") for hit, score in hits]
+    else:
+        output = []
+        with ThreadPoolExecutor() as executor:
+            for o in executor.map(_load, hits):
+                output.append(o)
 
     return output
 
@@ -103,7 +106,7 @@ def build_app() -> gr.Blocks:
                 object_fit="contain",
                 height="75vh",
                 interactive=False,
-                type="pil"
+                type=OUTPUT_TYPE
             )
 
         # pylint: disable=no-member
