@@ -17,6 +17,21 @@ class GeonamesReverseGeocoder:
     BASE_URL = "http://api.geonames.org"
     PRECISION = 3
 
+    # See https://www.geonames.org/export/codes.html
+    FEATURE_CODES = (
+        "PRK",
+        "RGN",
+        "PPL",
+        "MUS",
+        "PAL",
+        "GDN",
+        "SQR",
+        "SCH",
+        "UNIV",
+        "REST",
+        "BCH"
+    )
+
     def __init__(self, geonames_user: str):
         retry_strategy = Retry(
             total=1,
@@ -35,7 +50,9 @@ class GeonamesReverseGeocoder:
         payload = {
             "username": self.user,
             "lat": latitude,
-            "lng": longitude
+            "lng": longitude,
+            "style": "FULL",
+            "featureCode": self.FEATURE_CODES
         }
         return payload
 
@@ -65,7 +82,6 @@ class GeonamesReverseGeocoder:
             data = {"geonames": []}
         self.__upsert_cache(latitude=latitude, longitude=longitude, route=route, data=data)
         return data
-
 
     def find_nearby_place_name(self, latitude: float, longitude: float) -> Dict[str, Any]:
         """Reverse geo-coding for nearby place names only.
