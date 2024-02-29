@@ -16,14 +16,37 @@ Clone the repository
 git clone https://github.com/brainsqueeze/semantic-photos.git
 ```
 
+Photo search databases can be build automatically using the [builder](./semantic_photos/build.py). CLI options include
+```bash
+  -h, --help            show this help message and exit
+  --geonames_user GEONAMES_USER
+                        Username for Geonames API (default: None)
+  --type {MACOS_PHOTO_LIBRARY,DIGIKAM_PHOTO_LIBRARY}
+  --photo_lib_path PHOTO_LIB_PATH
+                        Absolute path to the photo library to process (default: None)
+  --chroma_path CHROMA_PATH
+                        Override the path to the ChromaDB database (default: None)
+  --album ALBUM         Album name to process (default: None)
+```
+An example build looks like
+```bash
+python -m semantic_photos.build \
+    --type MACOS_PHOTO_LIBRARY \
+    --photo_lib_path ~/Pictures/Photos Library.photoslibrary \
+    --chroma_path ./database \
+    --album album_1 \
+    --album album_2 \
+    --album album_3 \
+    ...
+```
+This project uses the [Geonames API](https://www.geonames.org/export/web-services.html) to do reverse geocoding on lat/lon coordinates. You will need to create an account and use your username to authenticate with the service. Once you have a username you can pass it to the build tool as a CLI parameter like `--geonames_user=<user_name>`. Usernames can also optionally be set as an environmental variable:
+```bash
+export GEONAMES_USERNAME=<your_username>
+```
+
 Optionally set a path to cache the transformer models, image-to-text models, and ChromaDB files
 ```bash
 export MODEL_CACHE_DIR=/cache_dir/<some_path>
-```
-
-This project uses the [Geonames API](https://www.geonames.org/export/web-services.html) to do reverse geocoding on lat/lon coordinates. You will need to create an account and use your username to authenticate with the service. Usernames can be set with
-```bash
-export GEONAMES_USERNAME=<your_username>
 ```
 
 ## Building a search database on your own photos
@@ -106,6 +129,4 @@ python -m semantic_photos.app --chroma_path=<absolute_path>
 
 ## Limitations
 
-Currently this only works with [Digikam](https://www.digikam.org/) photo libraries. If you would like to enable support for other libraries please make a pull request.
-
-This has only been tested on Linux operating systems, cross-platform support is on the road map.
+Currently this works with MacOS, and [Digikam](https://www.digikam.org/) photo libraries. If you would like to enable support for other libraries please make a pull request.
