@@ -3,7 +3,6 @@ import argparse
 import warnings
 import os
 
-import torch
 from tqdm import tqdm
 
 try:
@@ -23,6 +22,7 @@ from semantic_photos.geographies import GeonamesReverseGeocoder
 from semantic_photos.models.caption import ImageCaption
 from semantic_photos.models.documents import ImageVectorStore
 from semantic_photos.models.schema import ImageData
+from semantic_photos.models.utils import get_accelerator
 from semantic_photos.utils import describe_people_in_scene, describe_geo_location
 from semantic_photos.constants import Supported
 
@@ -237,7 +237,7 @@ def build(
     else:
         raise TypeError(f"{library_type.value} is not yet supported")
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = get_accelerator()
     captioner = ImageCaption(device=device, batch_size=16)
     rev_geo_coder = GeonamesReverseGeocoder(geonames_user=geonames_user)
 
