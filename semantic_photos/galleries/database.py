@@ -1,8 +1,9 @@
 from typing import Dict, Iterator, Optional, Any
 from tempfile import TemporaryDirectory
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import warnings
+import plistlib
 import sqlite3
 import shutil
 import sys
@@ -47,7 +48,7 @@ class SqliteReaderBase:
         for idx, col in enumerate(cursor.description):
             d[col[0]] = row[idx]
         return d
-    
+
     def _file_type_filter_where(self, file_name_field: str) -> str:
         return f"""
         LOWER(SUBSTR(
@@ -126,7 +127,7 @@ class DigikamReader(SqliteReaderBase):
         recognition_db: str = "recognition.db"
     ):
         self._connection = sqlite3.connect(database=os.path.join(photolibrary_path, core_db))
-        self._connection.row_factory = self._dict_factory
+        self._connection.row_factory = sqlite3.Row
         self._cursor = self._connection.cursor()
 
         self._cursor.execute("ATTACH DATABASE ? as recog;", (os.path.join(photolibrary_path, recognition_db),))
@@ -287,22 +288,31 @@ class MacPhotosReader(SqliteReaderBase):
                 source.backup(self._connection)
             except Exception as ex:
                 print(ex)
-        self._connection.row_factory = self._dict_factory
+        self._connection.row_factory = sqlite3.Row
         self._cursor = self._connection.cursor()
 
         self.__relative_file_path = os.path.join(photolibrary_path, "originals")
+        self._asset_fk, self._person_fk = self._version_fk_mapping()
+
+    def _version_fk_mapping(self):
+        for row in self._cursor.execute("SELECT MAX(Z_VERSION), Z_PLIST FROM Z_METADATA"):
+            plist = plistlib.loads(row["Z_PLIST"])
+            version = plist["PLModelVersion"]
+
+            if version >= 17000:
+                return "ZASSETFORFACE", "ZPERSONFORFACE"
+            return "ZASSET", "ZPERSON"
 
     @property
     def albums(self) -> Dict[str, Dict[str, Any]]:
         query = f"""
-        SELECT ZMOMENTLIST.ZSORTINDEX AS yearmonth
+        SELECT STRFTIME('%Y%m', DATE(ZDATECREATED + 978307200, 'unixepoch')) AS yearmonth
         , COUNT(*) AS size
         FROM ZASSET
         INNER JOIN ZMOMENT ON ZASSET.ZMOMENT = ZMOMENT.Z_PK
-        INNER JOIN ZMOMENTLIST ON ZMOMENT.ZMEGAMOMENTLIST = ZMOMENTLIST.Z_PK
         WHERE ZASSET.ZTRASHEDSTATE = 0
         AND {self._file_type_filter_where('ZASSET.ZFILENAME')}
-        GROUP BY ZMOMENTLIST.ZSORTINDEX;"""
+        GROUP BY STRFTIME('%Y%m', DATE(ZDATECREATED + 978307200, 'unixepoch'));"""
 
         output = {}
         self._cursor.execute(query, (*self.ALLOWED_TYPES,))
@@ -335,22 +345,21 @@ class MacPhotosReader(SqliteReaderBase):
         , ZASSET.ZLONGITUDE AS longitude
         , ZASSET.ZDATECREATED + 978307200 AS creation_date
         , people.people_names
-        , ZMOMENTLIST.ZSORTINDEX AS yearmonth
+        , STRFTIME('%Y%m', DATE(ZDATECREATED + 978307200, 'unixepoch')) AS yearmonth
         FROM ZASSET
         LEFT JOIN (
-            SELECT ZDETECTEDFACE.ZASSET
+            SELECT ZDETECTEDFACE.{self._asset_fk} AS ZASSET
             , GROUP_CONCAT(ZPERSON.ZFULLNAME) AS people_names
             FROM ZDETECTEDFACE
-            INNER JOIN ZPERSON ON ZPERSON.Z_PK = ZDETECTEDFACE.ZPERSON
+            INNER JOIN ZPERSON ON ZPERSON.Z_PK = ZDETECTEDFACE.{self._person_fk}
             WHERE ZPERSON.ZFULLNAME IS NOT NULL
             AND ZPERSON.ZFULLNAME <> ''
-            GROUP BY ZDETECTEDFACE.ZASSET
+            GROUP BY ZDETECTEDFACE.{self._asset_fk}
         ) AS people ON ZASSET.Z_PK = people.ZASSET
         INNER JOIN ZMOMENT ON ZASSET.ZMOMENT = ZMOMENT.Z_PK
-        INNER JOIN ZMOMENTLIST ON ZMOMENT.ZMEGAMOMENTLIST = ZMOMENTLIST.Z_PK
         WHERE ZASSET.ZTRASHEDSTATE = 0
         AND {self._file_type_filter_where('ZASSET.ZFILENAME')}
-        AND ZMOMENTLIST.ZSORTINDEX = ?;"""
+        AND STRFTIME('%Y%m', DATE(ZDATECREATED + 978307200, 'unixepoch')) = ?;"""
 
         self._cursor.execute(query, (*self.ALLOWED_TYPES, album_id,))
         for row in self._cursor:
@@ -366,7 +375,7 @@ class MacPhotosReader(SqliteReaderBase):
                     image_id=None,
                     image_file_name=row["name"],
                     relative_path=relative_path,
-                    creation_date=datetime.utcfromtimestamp(row["creation_date"]),
+                    creation_date=datetime.fromtimestamp(row["creation_date"], tz=timezone.utc),
                     lat=row["latitude"],
                     lon=row["longitude"],
                     people_names=row["people_names"]
