@@ -1,6 +1,6 @@
 # Semantic photos
 
-Make you photo albums semantically search-able. Using scene captioning combined with tagged people and locations make your albums work better for you and recall memories faster and naturally.
+Make your photo albums semantically search-able. Using scene captioning combined with tagged people and locations make your albums work better for you and recall memories faster and naturally.
 
 Photo searching is typically restricted to tag filtering and keyword searching if images have description notes manually added. This app aims to make photo libraries easier and more natural to search through by creating a search index based on
 * image-to-text auto-captioning
