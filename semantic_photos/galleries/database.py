@@ -119,7 +119,7 @@ class DigikamReader(SqliteReaderBase):
         Sqlite filename for the recognition database, by default "recognition.db"
     """
 
-    UUID_PATTERN = re.compile(r"^(volumeid:\?)(uuid=)(.*)")
+    UUID_PATTERN = re.compile(r"^(volumeid:\?)(uuid=)(.*)(?=(&))")
 
     def __init__(
         self,
@@ -127,6 +127,9 @@ class DigikamReader(SqliteReaderBase):
         core_db: str = "digikam4.db",
         recognition_db: str = "recognition.db"
     ):
+        if photolibrary_path.startswith('~'):
+            photolibrary_path = os.path.expanduser(photolibrary_path)
+
         self._connection = sqlite3.connect(database=os.path.join(photolibrary_path, core_db))
         self._connection.row_factory = sqlite3.Row
         self._cursor = self._connection.cursor()
@@ -192,7 +195,8 @@ class DigikamReader(SqliteReaderBase):
         """
 
         self._cursor.execute(query, (album_id, *self.ALLOWED_TYPES,))
-        for row in self._cursor:
+        for r in self._cursor:
+            row = {k: r[k] for k in r.keys()}
             relative_path: str = row["relativePath"]
             if relative_path.startswith('/'):
                 relative_path = relative_path[1:]
@@ -235,7 +239,6 @@ class DigikamReader(SqliteReaderBase):
                 "album_id": row["id"],
                 "name": relative_path.replace('/', ' :: '),
                 "path": path,
-                # "count": self.file_count(path)
                 "count": row["size"]
             }
         return output

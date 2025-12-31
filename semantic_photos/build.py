@@ -245,7 +245,7 @@ def build(
     captioner = ImageCaption(device=device, batch_size=16)
     rev_geo_coder = GeonamesReverseGeocoder(geonames_user=geonames_user)
 
-    vector_store = ImageVectorStore(chroma_persist_path=chroma_path, model_kwargs={"device": device})
+    vector_store = ImageVectorStore(chroma_persist_path=chroma_path, device=device)
 
     image_batch = []
     for image, metadata in streamer(photo_library_dir=library_dir, albums=albums):
@@ -270,7 +270,10 @@ def build(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--geonames_user", type=str, help="Username for Geonames API")
+    parser.add_argument(
+        "--geonames_user", type=str, help="Username for Geonames API",
+        default=os.getenv("GEONAMES_USERNAME")
+    )
     parser.add_argument("--type", type=Supported.argparse, choices=list(Supported))
     parser.add_argument("--photo_lib_path", type=str, help="Absolute path to the photo library to process")
     parser.add_argument("--chroma_path", type=str, help="Override the path to the ChromaDB database", required=False)

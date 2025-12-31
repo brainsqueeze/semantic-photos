@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import calendar
 
 from sentence_transformers import SentenceTransformer
+import torch
 
 from chromadb.execution.expression.operator import Rank, Key
 from chromadb.api.types import SearchResult
@@ -18,11 +19,13 @@ class SentenceTransformersEmbedding(chromadb.EmbeddingFunction):
         self,
         model_name: str = "sentence-transformers/all-MiniLM-L12-v2",
         cache_folder: str = HUGGINGFACE_CACHE,
+        device: str | torch.device = "cpu",
         model_kwargs: dict[str, Any] | None = None
     ) -> None:
         self.model = SentenceTransformer(
             model_name_or_path=model_name,
             cache_folder=cache_folder,
+            device=str(device),
             model_kwargs=(model_kwargs or {})
         )
         super().__init__()
@@ -74,14 +77,19 @@ class ImageVectorStore:
         collection_name: str = "semantic-photos",
         model_name: str = "sentence-transformers/all-MiniLM-L12-v2",
         cache_folder: str = HUGGINGFACE_CACHE,
+        device: str | torch.device = "cpu",
         model_kwargs: dict[str, Any] | None = None,
     ):
+        if isinstance(device, torch.device):
+            device = str(device)
+
         chroma_client = chromadb.PersistentClient(path=chroma_persist_path)
         self.db = chroma_client.get_or_create_collection(
             name=collection_name,
             embedding_function=SentenceTransformersEmbedding(
                 model_name=model_name,
                 cache_folder=cache_folder,
+                device=device,
                 model_kwargs=model_kwargs
             ),
             configuration={
