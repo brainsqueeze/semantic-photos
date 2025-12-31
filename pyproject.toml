@@ -2,7 +2,7 @@
 name = "candid-graph"
 dynamic = ["version", "readme"]
 authors = [
-    {name="Dave Hollander", email="datascience@candid.org"},
+    {name="Dave Hollander"},
 ]
 description = "Semantic search for photo libraries"
 requires-python = ">=3.11"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://dev.azure.com/guidestar/DataScience/_git/graph-ai"
+Repository = "https://github.com/brainsqueeze/semantic-photos"
 
 [tool.ruff]
 line-length = 120
