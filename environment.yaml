@@ -2,10 +2,10 @@ name: semantic-photos
 dependencies:
   - conda-forge::pillow
   - pip
-  - python=3.11
-  - pytorch::pytorch=2.2
+  - python=3.12
   - requests
   - pip:
+    - -r requirements-cuda.txt
     - chromadb
     - gradio
     - langchain

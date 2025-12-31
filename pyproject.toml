@@ -1,0 +1,52 @@
+[project]
+name = "candid-graph"
+dynamic = ["version", "readme"]
+authors = [
+    {name="Dave Hollander", email="datascience@candid.org"},
+]
+description = "Semantic search for photo libraries"
+requires-python = ">=3.11"
+dependencies = [
+    "chromadb",
+    "gradio",
+    "langchain",
+    "pillow-heif",
+    "requests",
+    "sentence-transformers",
+    "transformers"
+]
+
+[project.urls]
+Repository = "https://dev.azure.com/guidestar/DataScience/_git/graph-ai"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E", "W",
+    "I",
+    "N",
+    "PL",
+    "UP",
+    "C4",
+    "SIM",
+    "RET",
+    # "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    # "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    # "D104",  # Missing docstring in public package
+    "D106",  # Missing docstring in public nested class
+]
+ignore = [
+    "I001",
+    "PLR0913", "PLR2004",
+    "N8",
+    "UP015"
+]
+
+[tool.ruff.lint.pylint]
+max-branches = 30
+max-statements = 75
