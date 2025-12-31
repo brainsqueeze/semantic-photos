@@ -1,11 +1,14 @@
-from typing import Dict, Any
+from typing import Any
 from urllib.parse import urljoin
 
 from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 import requests
 
 
 class GeonamesAuthenticationError(Exception):
+    """Generic wrapper for GeoNames API authentication errors
+    """
     ...
 
 
@@ -48,7 +51,7 @@ class GeonamesReverseGeocoder:
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["HEAD", "GET", "OPTIONS"]
         )
-        adapter = requests.adapters.HTTPAdapter(max_retries=retry_strategy)
+        adapter = HTTPAdapter(max_retries=retry_strategy)
         self.__session = requests.Session()
         self.__session.mount("https://", adapter)
         self.__session.mount("http://", adapter)
@@ -56,15 +59,14 @@ class GeonamesReverseGeocoder:
         self.user = geonames_user
         self.__cache = {}
 
-    def _build_request(self, latitude: float, longitude: float) -> Dict[str, Any]:
-        payload = {
+    def _build_request(self, latitude: float, longitude: float) -> dict[str, Any]:
+        return {
             "username": self.user,
             "lat": latitude,
             "lng": longitude,
             "style": "FULL",
             "featureCode": self.FEATURE_CODES
         }
-        return payload
 
     def __check_cache(self, latitude: float, longitude: float, route: str):
         lat = round(latitude, self.PRECISION)
@@ -76,24 +78,21 @@ class GeonamesReverseGeocoder:
         lng = round(longitude, self.PRECISION)
         self.__cache[(lat, lng, route)] = data
 
-    def _query(self, latitude: float, longitude: float, route: str) -> Dict[str, Any]:
+    def _query(self, latitude: float, longitude: float, route: str) -> dict[str, Any]:
         cache_hit = self.__check_cache(latitude=latitude, longitude=longitude, route=route)
         if cache_hit is not None:
             return cache_hit
-        
+
         response = self.__session.get(
             url=urljoin(self.BASE_URL, route),
             params=self._build_request(latitude=latitude, longitude=longitude)
         )
 
-        if response.status_code == 200:
-            data = response.json()
-        else:
-            data = {"geonames": []}
+        data = response.json() if response.status_code == 200 else {"geonames": []}
         self.__upsert_cache(latitude=latitude, longitude=longitude, route=route, data=data)
         return data
 
-    def find_nearby_place_name(self, latitude: float, longitude: float) -> Dict[str, Any]:
+    def find_nearby_place_name(self, latitude: float, longitude: float) -> dict[str, Any]:
         """Reverse geo-coding for nearby place names only.
 
         Parameters
@@ -103,13 +102,12 @@ class GeonamesReverseGeocoder:
 
         Returns
         -------
-        Dict[str, Any]
+        dict[str, Any]
         """
 
-        data = self._query(latitude=latitude, longitude=longitude, route="findNearbyPlaceNameJSON")
-        return data
+        return self._query(latitude=latitude, longitude=longitude, route="findNearbyPlaceNameJSON")
 
-    def find_nearby(self, latitude: float, longitude: float) -> Dict[str, Any]:
+    def find_nearby(self, latitude: float, longitude: float) -> dict[str, Any]:
         """Reverse geo-coding for nearby places or points of interest.
 
         Parameters
@@ -119,11 +117,10 @@ class GeonamesReverseGeocoder:
 
         Returns
         -------
-        Dict[str, Any]
+        dict[str, Any]
         """
 
-        data = self._query(latitude=latitude, longitude=longitude, route="findNearbyJSON")
-        return data
+        return self._query(latitude=latitude, longitude=longitude, route="findNearbyJSON")
 
     def teardown(self):
         """Deletes cache and closes the session.

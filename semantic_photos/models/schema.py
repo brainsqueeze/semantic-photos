@@ -27,8 +27,8 @@ class ImageData:
         texts = []
         for t in (self.caption, self.geo_description, self.people_description):
             if t.strip() != "":
-                t = t.strip()
+                t = t.strip()  # noqa: PLW2901
                 if not t.endswith('.'):
-                    t += "."
+                    t += "."  # noqa: PLW2901
                 texts.append(t)
         return ' '.join(texts)

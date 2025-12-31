@@ -1,12 +1,12 @@
-from typing import List, Dict, Any
+from typing import Any
 
 
-def describe_people_in_scene(people: List[str]) -> str:
+def describe_people_in_scene(people: list[str]) -> str:
     """Builds a string that describes the named people identified in a given photo.
 
     Parameters
     ----------
-    people : List[str]
+    people : list[str]
         List of people names
 
     Returns
@@ -22,13 +22,13 @@ def describe_people_in_scene(people: List[str]) -> str:
     return f"The scene contains {', '.join(people[:-1])} and {people[-1]}."
 
 
-def describe_geo_location(geos: List[Dict[str, Any]]) -> str:
+def describe_geo_location(geos: list[dict[str, Any]]) -> str:
     """Builds a string that describes the geographic location where the photo was taken.
     Can contain place names or points of interest.
 
     Parameters
     ----------
-    geos : List[Dict[str, Any]]
+    geos : list[dict[str, Any]]
         Geographic information from the Geonames API
 
     Returns

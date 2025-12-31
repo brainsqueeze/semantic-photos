@@ -7,10 +7,10 @@ class Supported(Enum):
 
     def __str__(self) -> str:
         return self.name
-    
+
     def __repr__(self) -> str:
         return str(self)
-    
+
     @staticmethod
     def argparse(choice: str):
         try:

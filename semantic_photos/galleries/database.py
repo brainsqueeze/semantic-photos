@@ -1,7 +1,8 @@
-from typing import Dict, Iterator, Optional, Any
+from typing import Any
+from collections.abc import Iterator
 from tempfile import TemporaryDirectory
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 import warnings
 import plistlib
 import sqlite3
@@ -21,13 +22,13 @@ class Media:
     """
 
     album_id: int
-    image_id: int
+    image_id: int | None
     image_file_name: str
     creation_date: datetime
-    relative_path: Optional[str] = None
-    lat: Optional[float] = None
-    lon: Optional[float] = None
-    people_names: Optional[str] = None
+    relative_path: str
+    lat: float | None = None
+    lon: float | None = None
+    people_names: str | None = None
 
 
 class SqliteReaderBase:
@@ -43,7 +44,7 @@ class SqliteReaderBase:
     _connection: Connection
 
     @staticmethod
-    def _dict_factory(cursor: Cursor, row: Row) -> Dict[Any, Any]:
+    def _dict_factory(cursor: Cursor, row: Row) -> dict[Any, Any]:
         d = {}
         for idx, col in enumerate(cursor.description):
             d[col[0]] = row[idx]
@@ -209,7 +210,7 @@ class DigikamReader(SqliteReaderBase):
             )
 
     @property
-    def albums(self) -> Dict[str, Dict[str, Any]]:
+    def albums(self) -> dict[str, dict[str, Any]]:
         query = f"""
         SELECT Albums.id
         , Albums.albumRoot
@@ -240,12 +241,12 @@ class DigikamReader(SqliteReaderBase):
         return output
 
     @property
-    def volume_map(self) -> Dict[Any, Any]:
+    def volume_map(self) -> dict[Any, Any]:
         """Disk volume info relevant for Digikam databases
 
         Returns
         -------
-        Dict[Any, Any]
+        dict[Any, Any]
         """
 
         return self.__volume_map
@@ -294,17 +295,22 @@ class MacPhotosReader(SqliteReaderBase):
         self.__relative_file_path = os.path.join(photolibrary_path, "originals")
         self._asset_fk, self._person_fk = self._version_fk_mapping()
 
-    def _version_fk_mapping(self):
+    def _version_fk_mapping(self) -> tuple[str, str]:
+        asset = "ZASSET"
+        person = "ZPERSON"
+
         for row in self._cursor.execute("SELECT MAX(Z_VERSION), Z_PLIST FROM Z_METADATA"):
             plist = plistlib.loads(row["Z_PLIST"])
             version = plist["PLModelVersion"]
 
             if version >= 17000:
-                return "ZASSETFORFACE", "ZPERSONFORFACE"
-            return "ZASSET", "ZPERSON"
+                asset = "ZASSETFORFACE"
+                person = "ZPERSONFORFACE"
+                break
+        return asset, person
 
     @property
-    def albums(self) -> Dict[str, Dict[str, Any]]:
+    def albums(self) -> dict[str, dict[str, Any]]:
         query = f"""
         SELECT STRFTIME('%Y%m', DATE(ZDATECREATED + 978307200, 'unixepoch')) AS yearmonth
         , COUNT(*) AS size
@@ -375,7 +381,7 @@ class MacPhotosReader(SqliteReaderBase):
                     image_id=None,
                     image_file_name=row["name"],
                     relative_path=relative_path,
-                    creation_date=datetime.fromtimestamp(row["creation_date"], tz=timezone.utc),
+                    creation_date=datetime.fromtimestamp(row["creation_date"], tz=UTC),
                     lat=row["latitude"],
                     lon=row["longitude"],
                     people_names=row["people_names"]

@@ -1,10 +1,10 @@
-from typing import List, Tuple
 from concurrent.futures import ThreadPoolExecutor
 from functools import cache
 import warnings
 import argparse
 import os
 
+from PIL.Image import Transpose
 from PIL import Image, ExifTags
 import gradio as gr
 
@@ -22,6 +22,9 @@ parser.add_argument("--chroma_path", type=str, help="Override the path to the Ch
 args = parser.parse_args()
 
 chroma_path = args.chroma_path if args.chroma_path is not None else os.getenv("MODEL_CACHE_DIR")
+if not isinstance(chroma_path, str):
+    raise TypeError("Invalid path to database")
+
 photo_store = ImageVectorStore(chroma_persist_path=chroma_path)
 OUTPUT_TYPE = "pil"
 
@@ -31,7 +34,7 @@ def _get_rotation_key() -> int:
     return max(ExifTags.TAGS.items(), key=lambda x: x[1] == 'Orientation', default=(-1, None))[0]
 
 
-def search(query: str) -> List[Tuple[str, str]]:
+def search(query: str) -> list[tuple[str, str]]:
     """Search function. If sending PIL Image objects then this function attempts to autocorrect the orientation. It also
     sends a downscaled version of the image.
 
@@ -42,7 +45,7 @@ def search(query: str) -> List[Tuple[str, str]]:
 
     Returns
     -------
-    List[Tuple[str, str]]
+    list[tuple[str, str]]
         (absolute image path, score text)
     """
 
@@ -60,11 +63,11 @@ def search(query: str) -> List[Tuple[str, str]]:
             e = getattr(img, '_getexif')()
             if e is not None:
                 if e.get(orientation_key) == 3:
-                    img = img.transpose(Image.ROTATE_180)  # pylint: disable=no-member
+                    img = img.transpose(Transpose.ROTATE_180)  # pylint: disable=no-member
                 elif e.get(orientation_key) == 6:
-                    img = img.transpose(Image.ROTATE_270)  # pylint: disable=no-member
+                    img = img.transpose(Transpose.ROTATE_270)  # pylint: disable=no-member
                 elif e.get(orientation_key) == 8:
-                    img = img.transpose(Image.ROTATE_90)  # pylint: disable=no-member
+                    img = img.transpose(Transpose.ROTATE_90)  # pylint: disable=no-member
         img = img.resize((int(img.size[0] * scale), int(img.size[1] * scale)))
 
         if isinstance(score, (float, int)):
@@ -101,8 +104,8 @@ def build_app() -> gr.Blocks:
             gallery = gr.Gallery(
                 label="Photo hits",
                 show_label=True,
-                columns=[4],
-                rows=[3],
+                columns=4,
+                rows=3,
                 object_fit="contain",
                 height="75vh",
                 interactive=False,

@@ -1,6 +1,7 @@
-from typing import List, Dict, Union, Optional, Any
+from typing import Any
 
 from transformers import pipeline
+import torch
 
 
 class ImageCaption:
@@ -12,7 +13,7 @@ class ImageCaption:
         Huggingface model name, by default "Salesforce/blip-image-captioning-base"
     device : str, optional
         Device onto which the model should be mapped, by default "cpu"
-    model_kwargs : Optional[Dict[str, Any]], optional
+    model_kwargs : Optional[dict[str, Any]], optional
         Optional pipeline kwargs, by default None
     batch_size : int, optional
         Max size of batch for multiple records, this is ignored for now, by default 8
@@ -21,8 +22,8 @@ class ImageCaption:
     def __init__(
         self,
         model: str = "Salesforce/blip-image-captioning-base",
-        device: str = "cpu",
-        model_kwargs: Optional[Dict[str, Any]] = None,
+        device: str | torch.device = "cpu",
+        model_kwargs: dict[str, Any] | None = None,
         batch_size: int = 8
     ):
         self.pipeline = pipeline(
@@ -41,17 +42,17 @@ class ImageCaption:
             "task": "image-to-text"
         }
 
-    def caption(self, images: Union[str, List[str]], **pipeline_kwargs) -> List[Dict[str, Any]]:
+    def caption(self, images: str | list[str], **pipeline_kwargs) -> list[str]:
         """Runs the image captioning pipeline.
 
         Parameters
         ----------
-        images : Union[str, List[str]]
+        images : Union[str, list[str]]
             File path or list of image filepaths
 
         Returns
         -------
-        List[Dict[str, Any]]
+        list[str]
             image-to-text transformer output
 
         Raises
@@ -74,12 +75,12 @@ class ImageCaption:
         return output
 
     @property
-    def config(self) -> Dict[str, Any]:
+    def config(self) -> dict[str, Any]:
         """Parameters used for image-to-text inferencing.
 
         Returns
         -------
-        Dict[str, Any]
+        dict[str, Any]
         """
 
         return self.__config

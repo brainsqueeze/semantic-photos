@@ -1,4 +1,5 @@
-from typing import List, Dict, Tuple, Iterator, Any
+from typing import Any
+from collections.abc import Iterator
 import argparse
 import warnings
 import os
@@ -27,17 +28,17 @@ from semantic_photos.utils import describe_people_in_scene, describe_geo_locatio
 from semantic_photos.constants import Supported
 
 
-def batch_caption(images: List[ImageData], captioner: ImageCaption) -> List[ImageData]:
+def batch_caption(images: list[ImageData], captioner: ImageCaption) -> list[ImageData]:
     """Batch process image-to-text captioning.
 
     Parameters
     ----------
-    images : List[ImageData]
+    images : list[ImageData]
     captioner : ImageCaption
 
     Returns
     -------
-    List[ImageData]
+    list[ImageData]
         List of image data objects with updated caption text
     """
 
@@ -94,20 +95,20 @@ def generate_people_in_scene_descriptions(image: ImageData, metadata: Media) -> 
 
 def stream_digikam_albums(
     photo_library_dir: str,
-    albums: List[str]
-) -> Iterator[Tuple[ImageData, Media]]:
+    albums: list[str]
+) -> Iterator[tuple[ImageData, Media]]:
     """Stream wrapper for the Digikam-based photolibrary reader.
 
     Parameters
     ----------
     photo_library_dir : str
         Absolute path to the directory containing the SQLite data.
-    albums : List[str]
+    albums : list[str]
         Albums to process
 
     Yields
     ------
-    Iterator[Tuple[ImageData, Media]]
+    Iterator[tuple[ImageData, Media]]
         (Image object, metadata object)
     """
 
@@ -134,20 +135,20 @@ def stream_digikam_albums(
 
 def stream_macos_albums(
     photo_library_dir: str,
-    albums: List[str]
-) -> Iterator[Tuple[ImageData, Media]]:
+    albums: list[str]
+) -> Iterator[tuple[ImageData, Media]]:
     """Stream wrapper for the MacOS-based photolibrary reader.
 
     Parameters
     ----------
     photo_library_dir : str
         Absolute path to the directory containing the SQLite data.
-    albums : List[str]
+    albums : list[str]
         Albums to process
 
     Yields
     ------
-    Iterator[Tuple[ImageData, Media]]
+    Iterator[tuple[ImageData, Media]]
         (Image object, metadata object)
     """
 
@@ -171,7 +172,7 @@ def stream_macos_albums(
                 yield img_data, record
 
 
-def validate_albums(library_type: Supported, library_dir: str) -> Dict[str, Dict[str, Any]] | None:
+def validate_albums(library_type: Supported, library_dir: str) -> dict[str, dict[str, Any]] | None:
     """Checks for album information in the given library. If no albums are found or the library_type type is not
     supported then None is returned.
 
@@ -184,7 +185,7 @@ def validate_albums(library_type: Supported, library_dir: str) -> Dict[str, Dict
 
     Returns
     -------
-    Dict[str, Dict[str, Any]] | None
+    dict[str, dict[str, Any]] | None
     """
 
     albums = None
@@ -201,8 +202,8 @@ def build(
     library_type: Supported,
     library_dir: str,
     chroma_path: str,
-    albums: List[str],
-    geonames_user: str = os.getenv("GEONAMES_USERNAME"),
+    albums: list[str],
+    geonames_user: str | None = os.getenv("GEONAMES_USERNAME"),
 ) -> int:
     """Database builder
 
@@ -214,7 +215,7 @@ def build(
         Absolute path to the photo library
     chroma_path : str
         Absolute path to the directory in which to save the ChromaDB assets
-    albums : List[str]
+    albums : list[str]
         Albums to process
     geonames_user : str
         Registered Geonames API username, by default os.getenv("GEONAMES_USERNAME")
@@ -237,6 +238,9 @@ def build(
     else:
         raise TypeError(f"{library_type.value} is not yet supported")
 
+    if geonames_user is None:
+        raise TypeError("Invalid GeoNames user supplied")
+
     device = get_accelerator()
     captioner = ImageCaption(device=device, batch_size=16)
     rev_geo_coder = GeonamesReverseGeocoder(geonames_user=geonames_user)
@@ -245,8 +249,8 @@ def build(
 
     image_batch = []
     for image, metadata in streamer(photo_library_dir=library_dir, albums=albums):
-        image = generate_geo_descriptions(image, metadata, geocoder=rev_geo_coder)
-        image = generate_people_in_scene_descriptions(image, metadata)
+        image = generate_geo_descriptions(image, metadata, geocoder=rev_geo_coder)  # noqa: PLW2901
+        image = generate_people_in_scene_descriptions(image, metadata)  # noqa: PLW2901
 
         image_batch.append(image)
 
