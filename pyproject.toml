@@ -1,5 +1,5 @@
 [project]
-name = "candid-graph"
+name = "semantic-photos"
 dynamic = ["version", "readme"]
 authors = [
     {name="Dave Hollander"},
