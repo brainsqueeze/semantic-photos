@@ -77,7 +77,7 @@ def search(query: str) -> list[tuple[str, str]]:
         return img, 0.
 
     if OUTPUT_TYPE == "filepath":
-        output = [(hit["metadata"]["path"], f"Score: {round(hit.get('score') or 0., 2)}") for hit in hits]
+        output = [(hit["metadata"]["path"], f"Score: {round(hit.get('score') or 0., 4)}") for hit in hits]
     else:
         output = []
         with ThreadPoolExecutor() as executor:
