@@ -4,6 +4,8 @@ import warnings
 import argparse
 import os
 
+from chromadb.api.types import SearchResultRow
+
 from PIL.Image import Transpose
 from PIL import Image, ExifTags
 import gradio as gr
@@ -25,7 +27,7 @@ chroma_path = args.chroma_path if args.chroma_path is not None else os.getenv("M
 if not isinstance(chroma_path, str):
     raise TypeError("Invalid path to database")
 
-photo_store = ImageVectorStore(chroma_persist_path=chroma_path)
+photo_store = ImageVectorStore(chroma_persist_path=chroma_path, build_tfidf_index=True)
 OUTPUT_TYPE = "pil"
 
 
@@ -49,33 +51,33 @@ def search(query: str) -> list[tuple[str, str]]:
         (absolute image path, score text)
     """
 
-    hits = photo_store.query(query, n_results=12)
+    hits = photo_store.search(query, n_results=12)
 
-    def _load(hit):
+    def _load(hit: SearchResultRow):
         scale = 0.3
-        score = None
+        score = hit.get("score") or 0.
         if isinstance(hit, (tuple, list)):
             hit, score = hit
-        img = Image.open(hit.metadata["path"])
+        img = Image.open(hit["metadata"]["path"])
 
         if hasattr(img, '_getexif'):
             orientation_key = _get_rotation_key()
             e = getattr(img, '_getexif')()
             if e is not None:
                 if e.get(orientation_key) == 3:
-                    img = img.transpose(Transpose.ROTATE_180)  # pylint: disable=no-member
+                    img = img.transpose(Transpose.ROTATE_180)
                 elif e.get(orientation_key) == 6:
-                    img = img.transpose(Transpose.ROTATE_270)  # pylint: disable=no-member
+                    img = img.transpose(Transpose.ROTATE_270)
                 elif e.get(orientation_key) == 8:
-                    img = img.transpose(Transpose.ROTATE_90)  # pylint: disable=no-member
+                    img = img.transpose(Transpose.ROTATE_90)
         img = img.resize((int(img.size[0] * scale), int(img.size[1] * scale)))
 
         if isinstance(score, (float, int)):
             return img, f"Score: {round(score, 2)}"
-        return img, None
+        return img, 0.
 
     if OUTPUT_TYPE == "filepath":
-        output = [(hit.metadata["path"], f"Score: {round(score, 2)}") for hit, score in hits]
+        output = [(hit["metadata"]["path"], f"Score: {round(hit.get('score') or 0., 2)}") for hit in hits]
     else:
         output = []
         with ThreadPoolExecutor() as executor:
@@ -123,4 +125,4 @@ def build_app() -> gr.Blocks:
 
 if __name__ == '__main__':
     app = build_app()
-    app.queue(max_size=10).launch(server_name="0.0.0.0")
+    app.queue(max_size=10).launch()
