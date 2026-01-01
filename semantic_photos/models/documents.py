@@ -206,7 +206,6 @@ class ImageVectorStore:
         self,
         query: str,
         n_results: int = 10,
-        where: dict[str, str] | None = None,
         where_document: chromadb.WhereDocument | None = None
     ) -> list[SearchResultRow]:
         """Run a vector search query to return documents and search scores.
@@ -217,9 +216,7 @@ class ImageVectorStore:
             Text prompt to retrieve documents
         n_results : int, optional
             How many images to return, by default 10
-        where : dict[str, str] | None, optional
-            Where filter, equivalent to `where` in the ChromaDB API, or `filter` in LangChain, by default None
-        where_document : dict[str, str] | None, optional
+        where_document : chromadb.WhereDocument | None, optional
             A WhereDocument type dict used to filter by the documents.
             E.g. `{$contains: {"text": "hello"}}`, by default None
 
@@ -231,28 +228,12 @@ class ImageVectorStore:
 
         retriever_results = [
             self.knn(query=query, n_results=100, where_document=where_document),
-            # self.fts(query=query, n_results=100, where_document=where_document),
         ]
 
         if self.ft_index is not None:
             retriever_results.append(self.ft_index.fts(query=query, n_results=100))
 
-        return rrf_rerank(*retriever_results, n_results=n_results)
-
-    def fts(
-        self,
-        query: str,
-        n_results: int = 10,
-        where_document: chromadb.WhereDocument | None = None
-    ) -> chromadb.QueryResult:
-        if where_document is None:
-            where_document = {}
-        where_document["$contains"] = query
-
-        return self.db.query(
-            n_results=n_results,
-            where_document=where_document
-        )
+        return rrf_rerank(*retriever_results, n_results=n_results, k=10)
 
     def knn(
         self,
