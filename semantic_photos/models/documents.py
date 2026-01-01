@@ -1,13 +1,12 @@
 from typing import Any
 import calendar
 
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sentence_transformers import SentenceTransformer
+import numpy as np
 import torch
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-import numpy as np
-
-from chromadb.api.types import Metadata, SearchResultRow
+from chromadb.api.types import Metadata, SearchResultRow, QueryResult
 from chromadb.api.models.Collection import Collection
 import chromadb
 
@@ -19,16 +18,27 @@ def _rrf_score(score: float, rank: int, k: float = 60.) -> float:
     return score + (1. / (k + rank))
 
 
-def rrf_rerank(*result_sets: chromadb.QueryResult, k: float = 60., n_results: int = 10) -> list[SearchResultRow]:
+def rrf_rerank(*result_sets: QueryResult, k: float = 60., n_results: int = 10) -> list[SearchResultRow]:
+    """Reciprocal rank fusion for hybrid search with Chroma-compatible sub-retrievers.
+
+    Parameters
+    ----------
+    k : float, optional
+        RRF mixing constant, larger values tend to consider items further down in search results, by default 60.
+    n_results : int, optional
+        Number of search hits to return, by default 10
+
+    Returns
+    -------
+    list[SearchResultRow]
+    """
+
     rescored = {}
     documents = {}
     keys = ("ids", "documents", "metadatas")
 
     for results in result_sets:
-        docs = [
-            dict(zip(keys, b))
-            for b in zip(*[(results[k] or [])[0] for k in keys])
-        ]
+        docs = [dict(zip(keys, b)) for b in zip(*[(results[k] or [])[0] for k in keys])]
 
         for result_rank, doc in enumerate(docs, start=1):
             doc_id = doc["ids"]
@@ -50,6 +60,13 @@ def rrf_rerank(*result_sets: chromadb.QueryResult, k: float = 60., n_results: in
 
 
 class TfIdfSearch:
+    """TF-IDF based text search over Chroma collections.
+
+    Parameters
+    ----------
+    collection : Collection
+        ChromaDB collection object
+    """
 
     def __init__(self, collection: Collection):
         self._collection = collection
@@ -79,7 +96,7 @@ class TfIdfSearch:
 
         return top_idx, top_scores
 
-    def fts(self, query: str, n_results: int = 10) -> chromadb.QueryResult:
+    def fts(self, query: str, n_results: int = 10) -> QueryResult:
         indices, scores = self._inner(query, top_k=n_results)
 
         ids: list[str] = []
@@ -94,7 +111,7 @@ class TfIdfSearch:
             metadatas.extend(doc["metadatas"] or [])
             distances.append(score.item())
 
-        return chromadb.QueryResult(
+        return QueryResult(
             ids=[ids],
             metadatas=[metadatas],
             documents=[documents],
@@ -103,6 +120,20 @@ class TfIdfSearch:
 
 
 class SentenceTransformersEmbedding(chromadb.EmbeddingFunction):
+    """Thin wrapper around arbitrary sentence-transformer models for Chroma embeddings
+
+    Parameters
+    ----------
+    model_name : str, optional
+        Sentence transformer compatible model name in the Huggingface hub,
+        by default "sentence-transformers/all-MiniLM-L12-v2"
+    cache_folder : str, optional
+        Override the cache location of Huggingface models, by default HUGGINGFACE_CACHE
+    device : str | torch.device, optional
+        Torch device, by default "cpu"
+    model_kwargs : dict[str, Any] | None, optional
+        Additional model execution keyword arguments, by default None
+    """
 
     def __init__(
         self,
@@ -121,7 +152,6 @@ class SentenceTransformersEmbedding(chromadb.EmbeddingFunction):
 
     def __call__(self, input: chromadb.Documents) -> chromadb.Embeddings:
         return self.model.encode(sentences=input).tolist()
-
 
 
 class ImageVectorStore:
@@ -222,8 +252,7 @@ class ImageVectorStore:
 
         Returns
         -------
-        list[tuple[Document, float]]
-            (Image document, score)
+        list[SearchResultRow]
         """
 
         retriever_results = [
@@ -240,7 +269,7 @@ class ImageVectorStore:
         query: str,
         n_results: int = 10,
         where_document: chromadb.WhereDocument | None = None
-    ) -> chromadb.QueryResult:
+    ) -> QueryResult:
         """Run a vector search query to return documents and search scores.
 
         Parameters
@@ -255,8 +284,7 @@ class ImageVectorStore:
 
         Returns
         -------
-        list[tuple[Document, float]]
-            (Image document, score)
+        QueryResult
         """
 
         return self.db.query(

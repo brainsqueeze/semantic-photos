@@ -77,7 +77,11 @@ def search(query: str) -> list[tuple[str, str]]:
         return img, 0.
 
     if OUTPUT_TYPE == "filepath":
-        output = [(hit["metadata"]["path"], f"Score: {round(hit.get('score') or 0., 4)}") for hit in hits]
+        output = [
+            (meta["path"], f"Score: {round(hit.get('score') or 0., 4)}")
+            for hit in hits
+            if (meta := hit.get("metadata")) is not None
+        ]
     else:
         output = []
         with ThreadPoolExecutor() as executor:
@@ -95,7 +99,7 @@ def build_app() -> gr.Blocks:
     gr.Blocks
     """
 
-    with gr.Blocks(theme=gr.themes.Soft(), title="Semantic photo search") as demo:
+    with gr.Blocks(theme=gr.themes.Soft(), title="Semantic photo search") as demo: # type: ignore
         gr.Markdown(
             "<h1>Semantic photos search</h1>"
             "Run a query to see relevant photos with the relevance score (lower scores are better)."
